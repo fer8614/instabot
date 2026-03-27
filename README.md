@@ -214,9 +214,6 @@ ngrok http 3000
 
 ---
 
-## Need Help?
-
-This project is maintained by [Juan Cadile](https://instagram.com/juancadile) / [Golem Lab](https://golemlab.ai) / [SALVé-Techlanna](https://techlanna.com).
 
 **We offer:**
 - Custom setup & deployment for your brand
@@ -224,17 +221,7 @@ This project is maintained by [Juan Cadile](https://instagram.com/juancadile) / 
 - Team training, development, and consulting on AI and business automation.
 - Integration with your existing tools (CRM, email marketing, etc.)
 
-**Reach out:** hello@techlanna.com
 
-### Learn to Build with AI
-
-For Spanish Speakers, check out the [Golem Lab Bootcamps](https://golemlab.ai/bootcamps) — intensive 10-week programs to build real products with AI:
-
-- **Vibe Coding Bootcamp** — Go from idea to MVP without writing code
-- **AI Engineer Bootcamp** — Go from developer to AI engineer
-
-For English speakers, check out [SALVé-Techlanna](https://techlanna.com) for AI and automation education, consulting, and development.
----
 
 ## License
 

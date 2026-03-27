@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InstaBot Admin Panel</title>
+  <link rel="stylesheet" href="/admin/styles.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo">
+        <h1>🤖 InstaBot</h1>
+        <p>Admin Panel</p>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-tab="keywords">
+          <span class="icon">🏷️</span>
+          <span>Keywords</span>
+        </button>
+        <button class="nav-item" data-tab="config">
+          <span class="icon">⚙️</span>
+          <span>Configuración</span>
+        </button>
+        <button class="nav-item" data-tab="status">
+          <span class="icon">📊</span>
+          <span>Estado</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="save-btn" class="btn btn-primary btn-block">
+          💾 Guardar Todo
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <header class="header">
+        <h2 id="page-title">Keywords</h2>
+        <div id="status-msg" class="status-msg"></div>
+      </header>
+
+      <!-- Keywords Tab -->
+      <section id="keywords-tab" class="tab active">
+        <div class="section-header">
+          <div>
+            <h3>Palabras Clave</h3>
+            <p>Configura las palabras clave que activan respuestas automáticas en DMs.</p>
+          </div>
+          <button id="add-kw-btn" class="btn btn-secondary">+ Agregar Keyword</button>
+        </div>
+        <div id="keywords-container" class="cards-grid"></div>
+      </section>
+
+      <!-- Config Tab -->
+      <section id="config-tab" class="tab">
+        <div class="section-header">
+          <div>
+            <h3>Configuración</h3>
+            <p>Credenciales de APIs y tokens para Meta, Instagram y servicios externos.</p>
+          </div>
+        </div>
+        <form id="config-form" class="config-form">
+          <fieldset>
+            <legend>🔐 Meta / Instagram API</legend>
+            <div class="form-group">
+              <label for="meta-app-secret">META_APP_SECRET</label>
+              <input type="password" id="meta-app-secret" placeholder="your_meta_app_secret">
+            </div>
+            <div class="form-group">
+              <label for="meta-verify-token">META_VERIFY_TOKEN</label>
+              <input type="text" id="meta-verify-token" placeholder="your_webhook_verify_token">
+            </div>
+            <div class="form-group">
+              <label for="instagram-token">INSTAGRAM_PAGE_ACCESS_TOKEN</label>
+              <input type="password" id="instagram-token" placeholder="your_page_access_token">
+            </div>
+            <div class="form-group">
+              <label for="instagram-page-id">INSTAGRAM_PAGE_ID</label>
+              <input type="text" id="instagram-page-id" placeholder="your_instagram_page_id">
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>🔑 Admin & Seguridad</legend>
+            <div class="form-group">
+              <label for="admin-api-key">ADMIN_API_KEY</label>
+              <input type="password" id="admin-api-key" placeholder="your_admin_api_key">
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>📧 Email (Resend)</legend>
+            <div class="form-group">
+              <label for="resend-api-key">RESEND_API_KEY</label>
+              <input type="password" id="resend-api-key" placeholder="your_resend_api_key">
+              <small>Opcional - omitir para desactivar emails</small>
+            </div>
+            <div class="form-group">
+              <label for="email-from">EMAIL_FROM</label>
+              <input type="text" id="email-from" placeholder="Your Brand <noreply@yourdomain.com>">
+            </div>
+            <div class="form-group">
+              <label for="welcome-template">WELCOME_EMAIL_TEMPLATE</label>
+              <input type="text" id="welcome-template" placeholder="bienvenido.html">
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>🗄️ Base de Datos</legend>
+            <div class="form-group">
+              <label for="database-url">DATABASE_URL</label>
+              <input type="text" id="database-url" placeholder="postgresql://user:password@host:5432/dbname">
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>⚡ Servidor</legend>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="port">PORT</label>
+                <input type="number" id="port" value="3000">
+              </div>
+              <div class="form-group">
+                <label for="log-level">LOG_LEVEL</label>
+                <select id="log-level">
+                  <option value="fatal">fatal</option>
+                  <option value="error">error</option>
+                  <option value="warn">warn</option>
+                  <option value="info" selected>info</option>
+                  <option value="debug">debug</option>
+                  <option value="trace">trace</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+        </form>
+      </section>
+
+      <!-- Status Tab -->
+      <section id="status-tab" class="tab">
+        <div class="section-header">
+          <div>
+            <h3>Estado del Sistema</h3>
+            <p>Información de salud y estado del servidor.</p>
+          </div>
+        </div>
+        <div class="status-grid">
+          <div class="status-card">
+            <h4>🚀 Servidor</h4>
+            <div id="server-status" class="status-value">-</div>
+          </div>
+          <div class="status-card">
+            <h4>⏱️ Uptime</h4>
+            <div id="uptime" class="status-value">-</div>
+          </div>
+          <div class="status-card">
+            <h4>📦 Versión</h4>
+            <div id="version" class="status-value">-</div>
+          </div>
+          <div class="status-card">
+            <h4>🔑 API Key</h4>
+            <input type="password" id="api-key-input" placeholder="Ingresa tu ADMIN_API_KEY" class="api-key-input">
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Keyword Modal -->
+  <div id="kw-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">Nuevo Keyword</h3>
+        <button type="button" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="kw-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="kw-id">ID *</label>
+              <input type="text" id="kw-id" required placeholder="ej: freebie">
+            </div>
+            <div class="form-group">
+              <label for="kw-keyword">Keyword Principal *</label>
+              <input type="text" id="kw-keyword" required placeholder="ej: FREEBIE">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="kw-aliases">Aliases (separados por coma)</label>
+            <input type="text" id="kw-aliases" placeholder="FREE, DOWNLOAD, GRATIS">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="kw-match-type">Tipo de Match</label>
+              <select id="kw-match-type">
+                <option value="exact">Exacto</option>
+                <option value="contains" selected>Contiene</option>
+                <option value="word_boundary">Límite de Palabra</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="kw-priority">Prioridad</label>
+              <input type="number" id="kw-priority" value="1" min="1">
+            </div>
+            <div class="form-group">
+              <label for="kw-cooldown">Cooldown (min)</label>
+              <input type="number" id="kw-cooldown" value="60" min="0">
+            </div>
+          </div>
+
+          <div class="form-group checkbox-group">
+            <label>
+              <input type="checkbox" id="kw-enabled" checked>
+              Habilitado
+            </label>
+            <label>
+              <input type="checkbox" id="kw-ask-email" checked>
+              Preguntar Email
+            </label>
+          </div>
+
+          <hr>
+
+          <h4>📩 Respuesta Inicial</h4>
+          <div class="form-group">
+            <label for="kw-response-type">Tipo</label>
+            <select id="kw-response-type">
+              <option value="button">Con Botón</option>
+              <option value="text">Solo Texto</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="kw-response-text">Texto *</label>
+            <textarea id="kw-response-text" rows="3" placeholder="Hey {{username}}! ..."></textarea>
+            <small>Usa {{username}} para el nombre del usuario</small>
+          </div>
+          <div id="response-buttons-section">
+            <div class="form-group">
+              <label>Botones</label>
+              <div id="response-buttons" class="buttons-list"></div>
+              <button type="button" class="btn btn-small" id="add-response-btn">+ Botón</button>
+            </div>
+          </div>
+
+          <hr>
+
+          <h4>🔄 Follow Up</h4>
+          <div class="form-group">
+            <label for="kw-followup-type">Tipo</label>
+            <select id="kw-followup-type">
+              <option value="button">Con Botón</option>
+              <option value="text">Solo Texto</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="kw-followup-text">Texto</label>
+            <textarea id="kw-followup-text" rows="3" placeholder="Aquí está tu recurso..."></textarea>
+          </div>
+          <div id="followup-buttons-section">
+            <div class="form-group">
+              <label>Botones</label>
+              <div id="followup-buttons" class="buttons-list"></div>
+              <button type="button" class="btn btn-small" id="add-followup-btn">+ Botón</button>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" id="delete-kw-btn" style="display:none;">Eliminar</button>
+        <button type="button" class="btn btn-secondary" id="cancel-kw-btn">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="save-kw-btn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/admin/app.js"></script>
+</body>
+</html>

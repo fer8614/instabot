@@ -6,6 +6,7 @@ import { loadKeywordRules } from './services/keyword.service.js';
 import { initDb } from './services/db.js';
 import { startEmailReminder } from './services/reminder.service.js';
 import { webhookRouter } from './webhooks/router.js';
+import { adminRouter } from './webhooks/admin.router.js';
 
 // Load and validate env vars
 const env = loadEnv();
@@ -33,20 +34,33 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
+// Admin API routes
+app.use('/api/admin', adminRouter);
+
+// Admin frontend static files
+app.use('/admin', express.static('admin'));
+
+// Redirect root to admin
+app.get('/', (_req: Request, res: Response) => {
+  res.redirect('/admin');
+});
+
 // Webhook routes
 app.use('/webhook', webhookRouter);
 
-// Initialize database and start server
+// Start server first (admin panel works without DB)
+app.listen(env.PORT, '0.0.0.0', () => {
+  logger.info({ port: env.PORT, env: env.NODE_ENV }, 'GolemBot server started');
+});
+
+// Initialize database in background (non-blocking)
 initDb()
   .then(() => {
     startEmailReminder();
-    app.listen(env.PORT, '0.0.0.0', () => {
-      logger.info({ port: env.PORT, env: env.NODE_ENV }, 'GolemBot server started');
-    });
+    logger.info('Database initialized and email reminders started');
   })
   .catch((err) => {
-    logger.fatal({ err }, 'Failed to initialize database');
-    process.exit(1);
+    logger.warn({ err }, 'Database initialization failed - webhooks will not work until DB is configured');
   });
 
 export { app };
