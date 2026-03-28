@@ -37,41 +37,50 @@ app.get('/health', (_req: Request, res: Response) => {
 // Admin API routes
 app.use('/api/admin', adminRouter);
 
-// Middleware to protect admin panel
+// Middleware to protect admin panel (only for HTML, not static assets)
 function requireAdminAuth(req: Request, res: Response, next: Function): void {
-  const apiKey = req.query.key || req.headers['x-api-key'];
-  
-  if (!apiKey || apiKey !== env.ADMIN_API_KEY) {
-    res.status(401).send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Admin Panel - Authentication Required</title>
-        <style>
-          body { font-family: system-ui; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-          .container { text-align: center; background: #1e293b; padding: 40px; border-radius: 8px; border: 1px solid #475569; }
-          h1 { margin: 0 0 20px 0; }
-          input { padding: 10px; width: 300px; border: 1px solid #475569; background: #0f172a; color: #f8fafc; border-radius: 4px; }
-          button { padding: 10px 20px; margin-top: 10px; background: #6366f1; color: white; border: none; border-radius: 4px; cursor: pointer; }
-          button:hover { background: #4f46e5; }
-          .error { color: #ef4444; margin-top: 10px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>🔐 Admin Panel</h1>
-          <p>Ingresa tu API Key para acceder</p>
-          <form method="GET">
-            <input type="password" name="key" placeholder="ADMIN_API_KEY" required autofocus>
-            <br>
-            <button type="submit">Acceder</button>
-          </form>
-          <p class="error">API Key inválida o no proporcionada</p>
-        </div>
-      </body>
-      </html>
-    `);
+  // Allow static assets (CSS, JS, images, etc.)
+  if (req.path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i)) {
+    next();
     return;
+  }
+  
+  // Allow index.html with authentication
+  if (req.path === '/' || req.path === '/index.html') {
+    const apiKey = req.query.key || req.headers['x-api-key'];
+    
+    if (!apiKey || apiKey !== env.ADMIN_API_KEY) {
+      res.status(401).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Admin Panel - Authentication Required</title>
+          <style>
+            body { font-family: system-ui; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+            .container { text-align: center; background: #1e293b; padding: 40px; border-radius: 8px; border: 1px solid #475569; }
+            h1 { margin: 0 0 20px 0; }
+            input { padding: 10px; width: 300px; border: 1px solid #475569; background: #0f172a; color: #f8fafc; border-radius: 4px; }
+            button { padding: 10px 20px; margin-top: 10px; background: #6366f1; color: white; border: none; border-radius: 4px; cursor: pointer; }
+            button:hover { background: #4f46e5; }
+            .error { color: #ef4444; margin-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>🔐 Admin Panel</h1>
+            <p>Ingresa tu API Key para acceder</p>
+            <form method="GET">
+              <input type="password" name="key" placeholder="ADMIN_API_KEY" required autofocus>
+              <br>
+              <button type="submit">Acceder</button>
+            </form>
+            <p class="error">API Key inválida o no proporcionada</p>
+          </div>
+        </body>
+        </html>
+      `);
+      return;
+    }
   }
   
   next();
