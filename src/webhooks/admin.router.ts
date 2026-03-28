@@ -8,10 +8,10 @@ import { resolve } from 'path';
 import type { KeywordRule } from '../types/keyword.types.js';
 
 const router: ExpressRouter = Router();
-const env = getEnv();
 
 // API Key middleware
 function requireApiKey(req: Request, res: Response, next: NextFunction): void {
+  const env = getEnv();
   const apiKey = req.headers['x-api-key'] || req.query.apiKey;
 
   if (!apiKey || apiKey !== env.ADMIN_API_KEY) {
