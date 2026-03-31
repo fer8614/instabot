@@ -1,238 +1,305 @@
 # InstaBot
 
-**Open-source ManyChat alternative. Self-hosted Instagram DM automation for ~$5/month.**
+Self-hosted Instagram DM automation for keyword-triggered replies, lead capture, and resource delivery.
 
-Replace your $50/month ManyChat subscription with a self-hosted server that does keyword-triggered DMs, email collection, and resource delivery — all running on Railway (or any Node.js host).
+This project is a lightweight alternative to tools like ManyChat for teams that want to run their own automation stack, keep their own data, and deploy on cheap infrastructure like Railway or any Node.js host with PostgreSQL.
 
----
+## What it does
 
-## Features
+- Sends **automatic DMs** when someone comments a matching keyword on a post
+- Supports keyword matching by:
+  - `exact`
+  - `contains`
+  - `word_boundary`
+- Handles **postback/button flows** for DM funnels
+- Supports **email capture** and follow-up delivery
+- Detects **returning users** and can continue/update their flow
+- Replies to **story mentions**
+- Supports **Instagram Ice Breakers**
+- Applies **cooldowns and rate limits**
+- Persists leads and DM activity in **PostgreSQL**
+- Includes a simple **admin panel** to manage keywords and config
+- Includes **Dockerfile** and **Railway** config for deployment
 
-- **Keyword-triggered DMs** — Someone comments a keyword on your post, they get a DM automatically
-- **3 match types** — `exact`, `contains`, or `word_boundary` (regex) matching
-- **Conversational email flow** — CTA button → ask for email → 10-min reminder → deliver resource
-- **Returning user detection** — Recognizes users who already gave their email, asks to confirm or update
-- **Email delivery** — Send resource links + welcome emails via Resend
-- **Story mention replies** — Auto-reply when someone mentions you in their story
-- **Ice Breaker support** — Works with Instagram's native conversation starters
-- **Cooldowns & rate limits** — Per-keyword cooldowns + global rate limiting
-- **PostgreSQL** — Leads, DM logs, and email status tracked in a database
-- **One-click deploy** — Dockerfile + `railway.toml` included
+## High-level flow
 
-## How It Works
-
+```text
+User comments a keyword on an Instagram post
+        │
+        ▼
+Webhook received by InstaBot
+        │
+        ▼
+Keyword rule matched
+        │
+        ▼
+Bot sends DM / button / follow-up flow
+        │
+        ├─> optional email capture
+        ├─> optional reminder flow
+        └─> optional email delivery via Resend
 ```
-User comments "CLASE" on your post
-        │
-        ▼
-InstaBot matches keyword → sends DM with CTA button
-        │
-        ▼
-User clicks button → "What's your email?"
-        │
-        ▼
-User sends email → Resource delivered via DM + email
+
+## Tech stack
+
+- **Runtime:** Node.js 20+
+- **Language:** TypeScript
+- **HTTP server:** Express
+- **Validation:** Zod
+- **Database:** PostgreSQL via `postgres`
+- **Logging:** Pino
+- **Email:** Resend
+- **Testing:** Vitest
+- **Package manager:** pnpm
+- **Deployment:** Railway or any Node-compatible host
+
+## Repository structure
+
+```text
+admin/                  # Static admin frontend
+email-templates/        # HTML email templates
+src/
+  config/               # Env loading + validation
+  handlers/             # Business logic per webhook/event type
+  scripts/              # Utility scripts (e.g. CSV import)
+  services/             # Instagram API, DB, email, cooldowns, leads, reminders
+  types/                # Shared TypeScript types
+  utils/                # Logger, retry helpers, templates
+  webhooks/             # Webhook router, verification, parser, admin API
+  __tests__/            # Vitest suites
+keywords.json           # Runtime keyword rules
+.env.example            # Environment template
+Dockerfile              # Container build
+railway.toml            # Railway deploy config
 ```
 
-## Quick Start
+## Requirements
 
-### 1. Clone and install
+Before running locally you need:
+
+- Node.js 20+
+- pnpm (or Corepack-enabled pnpm)
+- PostgreSQL
+- Meta app + Instagram Messaging API credentials
+- Optional: Resend account for email delivery
+
+If `pnpm` is not installed globally, use Corepack:
 
 ```bash
-git clone https://github.com/juancadile/instabot.git
-cd instabot
-pnpm install
+corepack enable
+corepack pnpm --version
 ```
 
-### 2. Configure environment
+## Quick start
+
+### 1. Clone
+
+```bash
+git clone git@github.com:fer8614/instabot.git
+cd instabot
+```
+
+### 2. Install dependencies
+
+```bash
+corepack pnpm install
+```
+
+### 3. Configure environment
 
 ```bash
 cp .env.example .env
-# Edit .env with your Meta API credentials, database URL, etc.
 ```
 
-### 3. Set up your keywords
+Then edit `.env` with your real values.
 
-Edit `keywords.json` to define your automation rules:
+### 4. Configure your keyword rules
+
+Edit `keywords.json`.
+
+Example:
 
 ```json
-{
-  "id": "clase",
-  "keyword": "CLASE",
-  "aliases": ["REGISTRARME", "VIBE CODING"],
-  "matchType": "contains",
-  "priority": 1,
-  "enabled": true,
-  "cooldownMinutes": 60,
-  "askEmail": true,
-  "response": {
-    "type": "button",
-    "text": "Hey {{username}}! Glad you want to learn!",
-    "buttons": [
-      {
-        "type": "postback",
-        "title": "Give me the courses",
-        "payload": "start_email:clase"
-      }
-    ]
-  },
-  "followUp": {
-    "type": "button",
-    "text": "Here's the link to the courses:",
-    "buttons": [
-      {
-        "type": "web_url",
-        "title": "View courses",
-        "url": "https://your-site.com/courses"
-      }
-    ]
+[
+  {
+    "id": "clase",
+    "keyword": "CLASE",
+    "aliases": ["REGISTRARME", "VIBE CODING"],
+    "matchType": "contains",
+    "priority": 1,
+    "enabled": true,
+    "cooldownMinutes": 60,
+    "askEmail": true,
+    "response": {
+      "type": "button",
+      "text": "Hey {{username}}! Glad you want to learn!",
+      "buttons": [
+        {
+          "type": "postback",
+          "title": "Give me the courses",
+          "payload": "start_email:clase"
+        }
+      ]
+    },
+    "followUp": {
+      "type": "button",
+      "text": "Here's the link to the courses:",
+      "buttons": [
+        {
+          "type": "web_url",
+          "title": "View courses",
+          "url": "https://your-site.com/courses"
+        }
+      ]
+    }
   }
-}
+]
 ```
 
-### 4. Deploy to Railway
+### 5. Run locally
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template)
+```bash
+corepack pnpm dev
+```
 
-Or deploy manually:
-1. Push to GitHub
-2. Connect repo to Railway
-3. Add a PostgreSQL plugin
-4. Set environment variables
-5. Deploy
+Health endpoint:
 
-### 5. Configure Meta Webhook
+```bash
+GET /health
+```
 
-1. Go to [Meta Developer Console](https://developers.facebook.com)
-2. Set webhook URL to `https://your-app.up.railway.app/webhook`
-3. Subscribe to: `comments`, `messages`, `messaging_postbacks`
+Webhook endpoint:
 
-## Configuration
+```bash
+GET/POST /webhook
+```
 
-### Environment Variables
+Admin panel:
+
+```text
+/admin?key=YOUR_ADMIN_API_KEY
+```
+
+## Environment variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `META_APP_SECRET` | Yes | Your Meta app secret (for webhook signature verification) |
-| `META_VERIFY_TOKEN` | Yes | Token you choose for webhook verification |
-| `INSTAGRAM_PAGE_ACCESS_TOKEN` | Yes | Instagram page access token |
-| `INSTAGRAM_PAGE_ID` | Yes | Your Instagram page/account ID |
+| `META_APP_SECRET` | Yes | Meta app secret for webhook signature verification |
+| `META_VERIFY_TOKEN` | Yes | Token used for webhook verification handshake |
+| `INSTAGRAM_PAGE_ACCESS_TOKEN` | Yes | Page access token for Instagram Messaging API |
+| `INSTAGRAM_PAGE_ID` | Yes | Instagram page/account ID |
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `ADMIN_API_KEY` | Yes | API key for admin endpoints |
-| `PORT` | No | Server port (default: 3000) |
-| `RESEND_API_KEY` | No | Resend API key (enables email features) |
-| `EMAIL_FROM` | No | Sender address (default: `InstaBot <noreply@example.com>`) |
-| `WELCOME_EMAIL_TEMPLATE` | No | Welcome email template filename (default: `bienvenido.html`) |
+| `ADMIN_API_KEY` | Yes | Protects admin API + admin panel |
+| `PORT` | No | HTTP port, default `3000` |
+| `NODE_ENV` | No | `development`, `production`, or `test` |
+| `LOG_LEVEL` | No | Pino log level |
+| `RESEND_API_KEY` | No | Enables email sending |
+| `EMAIL_FROM` | No | Sender address for outbound email |
+| `WELCOME_EMAIL_TEMPLATE` | No | Template filename from `email-templates/` |
 
-### Keyword Match Types
-
-| Type | Behavior | Example |
-|------|----------|---------|
-| `exact` | Full text must match | "CLASE" matches "CLASE" only |
-| `contains` | Keyword anywhere in text | "CLASE" matches "quiero la CLASE gratis" |
-| `word_boundary` | Whole word match | "AI" matches "tell me about AI" but not "WAIT" |
-
-All matching is case-insensitive.
-
-### Email Templates
-
-Two welcome email templates are included in `email-templates/`:
-
-- `bienvenido.html` — Golem Lab branded template (default)
-- `welcome-generic.html` — Clean generic template for your own branding
-
-To use the generic template, set in your `.env`:
-
-```
-WELCOME_EMAIL_TEMPLATE=welcome-generic.html
-```
-
-Or create your own HTML template in `email-templates/` and point to it. The template uses `{{1.record.full_name}}` as the name placeholder.
-
-## Architecture
-
-```
-src/
-├── index.ts                 # Entry point
-├── config/env.ts            # Zod-validated environment
-├── webhooks/
-│   ├── router.ts            # GET/POST /webhook
-│   ├── verify.ts            # HMAC signature verification
-│   └── parser.ts            # Parse Meta webhook events
-├── handlers/
-│   ├── comment.handler.ts   # Comment → keyword match → DM
-│   ├── message.handler.ts   # DM → email collection / keyword match
-│   ├── postback.handler.ts  # Button clicks → email flow
-│   └── mention.handler.ts   # Story mention → thank you DM
-├── services/
-│   ├── instagram.service.ts # Instagram Graph API client
-│   ├── keyword.service.ts   # Keyword matching engine
-│   ├── cooldown.service.ts  # Rate limits & cooldowns
-│   ├── lead.service.ts      # Lead CRUD (PostgreSQL)
-│   ├── email.service.ts     # Resend email delivery
-│   ├── reminder.service.ts  # 10-min email reminder
-│   └── db.ts                # Database connection & migrations
-└── utils/
-    ├── logger.ts            # Pino structured logging
-    ├── retry.ts             # Exponential backoff for API calls
-    └── templates.ts         # {{username}} template rendering
-```
-
-## Running Locally
+## Local development commands
 
 ```bash
-# Development (auto-reload)
-pnpm dev
+# Run in watch mode
+corepack pnpm dev
 
-# Build
-pnpm build
+# Build TypeScript
+corepack pnpm build
 
-# Production
-pnpm start
+# Start production build
+corepack pnpm start
 
-# Tests
-pnpm test
+# Run tests
+corepack pnpm test
+
+# Watch tests
+corepack pnpm test:watch
+
+# Import CSV
+corepack pnpm import:csv
 ```
 
-For local webhook testing, use [ngrok](https://ngrok.com) to expose your local server:
+## Deployment
 
-```bash
-ngrok http 3000
-# Then set the ngrok URL as your webhook URL in Meta Developer Console
+### Railway
+
+Recommended flow:
+
+1. Push repo to GitHub
+2. Create a Railway project
+3. Attach a PostgreSQL database
+4. Set all required environment variables
+5. Deploy
+6. Point Meta webhook to:
+   - `https://your-app.up.railway.app/webhook`
+
+### Docker
+
+The repo includes a `Dockerfile`, so you can also deploy to any container host.
+
+## Meta webhook setup
+
+In the Meta Developer Console:
+
+1. Set webhook URL to your deployed `/webhook`
+2. Use the same `META_VERIFY_TOKEN` configured in `.env`
+3. Subscribe to the webhook topics required by your automation flows
+
+Minimum expected subscriptions typically include:
+- `comments`
+- `messages`
+- `messaging_postbacks`
+
+Depending on your setup, you may also need other Instagram messaging-related events.
+
+## Admin panel
+
+This project includes:
+
+- a static frontend in `admin/`
+- admin API routes under `/api/admin`
+
+Current capabilities include:
+- reading/updating `keywords.json`
+- reading/updating `.env` config values
+
+Authentication is currently done with `ADMIN_API_KEY`.
+
+Example:
+
+```text
+https://your-host/admin?key=YOUR_ADMIN_API_KEY
 ```
 
-## Cost Comparison
+## Architecture notes
 
-| | ManyChat | InstaBot |
-|---|---------|----------|
-| Monthly cost | $15-50+ | ~$5 (Railway) |
-| DM limits | Plan-dependent | Unlimited* |
-| Data ownership | ManyChat's servers | Your database |
-| Customization | Limited | Full source code |
+- `src/index.ts` boots env validation, keyword loading, Express, admin routes, webhook routes, and DB init
+- Webhook payloads are parsed as JSON and raw body is preserved for signature verification
+- Database initialization is started in the background so the app can still boot the admin panel
+- Webhook and automation logic is separated into `handlers/` + `services/`
+- Runtime keyword behavior is driven by `keywords.json`, not hardcoded in source
 
-*Subject to Instagram API rate limits.
+## Testing status
 
----
+Repository status at inspection time:
 
+- Build: **passes**
+- Tests: **30/30 passing**
 
-**We offer:**
-- Custom setup & deployment for your brand
-- Feature development (LLM-powered replies, analytics dashboards, multi-account)
-- Team training, development, and consulting on AI and business automation.
-- Integration with your existing tools (CRM, email marketing, etc.)
+Note: current tests can emit PostgreSQL connection-refused logs if no local DB is running. They still pass because parts of the app are designed to log-and-continue when DB is unavailable.
 
+## Known rough edges
 
+- Branding/copy may still need cleanup in some files or log strings
+- Admin panel is intentionally simple and not a full SPA
+- Some tests still touch DB code paths indirectly instead of using full DB isolation
 
 ## License
 
-MIT — use it, modify it, sell it. See [LICENSE](LICENSE) for details.
-
----
+MIT. See [LICENSE](LICENSE).
 
 ## Disclaimer
 
-To the best of our understanding, using this tool with the official Instagram Messaging API for your own account (personal or business) is permitted by Meta's platform policies and does not require App Review. However, using it to manage third-party accounts or offer it as a service to clients may require additional Meta approvals.
+Use of the Instagram Messaging API must comply with Meta platform rules and any applicable legal/commercial requirements.
 
-This is not legal advice. If you intend to use this tool commercially or on behalf of clients, consult a qualified legal professional to ensure compliance with Meta's Platform Terms, Instagram's policies, and applicable laws.
-
-The authors and contributors of this project accept no liability for any account suspension, ban, legal claim, or other consequence arising from the use of this software. **Use at your own risk.**
+If you plan to run this for client accounts, as an agency, or as a commercial service, verify the policy implications first. This repository is provided as software only; use it at your own risk.
