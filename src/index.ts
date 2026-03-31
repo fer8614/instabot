@@ -8,11 +8,13 @@ import { startEmailReminder } from './services/reminder.service.js';
 import { webhookRouter } from './webhooks/router.js';
 import { adminRouter } from './webhooks/admin.router.js';
 
-// Load and validate env vars
 const env = loadEnv();
 
-// Load keyword rules
-loadKeywordRules();
+try {
+  loadKeywordRules();
+} catch (err) {
+  logger.warn({ err }, 'Failed to load legacy keyword rules at startup');
+}
 
 const app: Express = express();
 
