@@ -6,6 +6,7 @@ import { readFile } from 'fs/promises';
 import { resolve } from 'path';
 import type { KeywordRule } from '../types/keyword.types.js';
 import { listAccounts, upsertAccount, getAccountById } from '../services/account.service.js';
+import { getDb } from '../services/db.js';
 import { getKeywordRules, loadKeywordRules, loadKeywordRulesForAccount, saveKeywordRules } from '../services/keyword.service.js';
 
 const router: ExpressRouter = Router();
@@ -57,11 +58,16 @@ router.get('/keywords', async (req: Request, res: Response) => {
   try {
     const accountId = String(req.query.accountId || 'legacy-default');
     if (accountId === 'legacy-default') {
-      loadKeywordRules(accountId);
-    } else {
-      await loadKeywordRulesForAccount(accountId);
+      const keywordsPath = resolve(process.cwd(), 'keywords.json');
+      const raw = await readFile(keywordsPath, 'utf-8');
+      res.json(JSON.parse(raw));
+      return;
     }
-    res.json(getKeywordRules(accountId));
+    const db = getDb();
+    const rows = await db<{ rules_json: string }[]>`
+      SELECT rules_json FROM keyword_rule_sets WHERE account_id = ${accountId} LIMIT 1
+    `;
+    res.json(rows[0] ? JSON.parse(rows[0].rules_json) : []);
   } catch (err) {
     logger.error({ err }, 'Failed to get keywords');
     res.status(500).json({ error: 'Failed to load keywords' });

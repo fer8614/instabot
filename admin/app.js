@@ -2,7 +2,12 @@ let keywords = [];
 let accounts = [];
 let currentAccountId = 'legacy-default';
 let currentEditingKeyword = null;
-let apiKey = localStorage.getItem('adminApiKey') || '';
+
+// Extract API key from URL query param or localStorage
+const urlParams = new URLSearchParams(window.location.search);
+const urlKey = urlParams.get('key');
+let apiKey = urlKey || localStorage.getItem('adminApiKey') || '';
+if (urlKey) localStorage.setItem('adminApiKey', urlKey);
 
 const navItems = document.querySelectorAll('.nav-item');
 const tabs = document.querySelectorAll('.tab');
@@ -47,6 +52,15 @@ function setupEventListeners() {
   apiKeyInput.addEventListener('change', (e) => {
     apiKey = e.target.value;
     localStorage.setItem('adminApiKey', apiKey);
+  });
+  document.querySelectorAll('.toggle-secret').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = document.getElementById(btn.dataset.target);
+      const isPassword = input.type === 'password';
+      input.type = isPassword ? 'text' : 'password';
+      btn.classList.toggle('visible', isPassword);
+      btn.textContent = isPassword ? '🙈' : '👁';
+    });
   });
   modal.addEventListener('click', (e) => { if (e.target === modal) closeKeywordModal(); });
 }
@@ -200,11 +214,20 @@ function openKeywordModal(keyword = null) {
     document.getElementById('kw-followup-text').value = keyword.followUp?.text || '';
     renderButtons('followup', keyword.followUp?.buttons || []);
   } else {
-    document.getElementById('kw-form').reset();
+    document.getElementById('kw-id').value = '';
+    document.getElementById('kw-keyword').value = '';
+    document.getElementById('kw-aliases').value = '';
+    document.getElementById('kw-match-type').value = 'contains';
     document.getElementById('kw-priority').value = 1;
     document.getElementById('kw-cooldown').value = 60;
     document.getElementById('kw-enabled').checked = true;
     document.getElementById('kw-ask-email').checked = true;
+    document.getElementById('kw-response-type').value = 'button';
+    document.getElementById('kw-response-text').value = '';
+    document.getElementById('kw-followup-type').value = 'button';
+    document.getElementById('kw-followup-text').value = '';
+    document.getElementById('response-buttons-section').style.display = 'block';
+    document.getElementById('followup-buttons-section').style.display = 'block';
     renderButtons('response', []);
     renderButtons('followup', []);
   }
@@ -239,7 +262,7 @@ function removeButton(type, idx) {
 }
 window.removeButton = removeButton;
 
-function saveKeyword() {
+async function saveKeyword() {
   const id = document.getElementById('kw-id').value.trim();
   const keyword = document.getElementById('kw-keyword').value.trim();
   if (!id || !keyword) return alert('ID y Keyword son requeridos');
@@ -267,16 +290,33 @@ function saveKeyword() {
   if (existingIdx >= 0) keywords[existingIdx] = newKeyword; else keywords.push(newKeyword);
   renderKeywords();
   closeKeywordModal();
+  await persistKeywords();
   showStatus('Keyword guardado', 'success');
 }
 
-function deleteKeyword() {
+async function deleteKeyword() {
   if (!currentEditingKeyword) return;
   if (!confirm(`¿Eliminar keyword "${currentEditingKeyword.keyword}"?`)) return;
   keywords = keywords.filter(k => k.id !== currentEditingKeyword.id);
   renderKeywords();
   closeKeywordModal();
+  await persistKeywords();
   showStatus('Keyword eliminado', 'success');
+}
+
+async function persistKeywords() {
+  if (!apiKey) return;
+  try {
+    const res = await fetch(`/api/admin/keywords?accountId=${encodeURIComponent(currentAccountId)}`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ accountId: currentAccountId, rules: keywords }),
+    });
+    if (!res.ok) showStatus('Error guardando keywords', 'error');
+  } catch (err) {
+    console.error(err);
+    showStatus('Error guardando keywords', 'error');
+  }
 }
 
 async function saveAll() {
@@ -304,8 +344,11 @@ async function saveAll() {
     }
     const kwRes = await fetch(`/api/admin/keywords?accountId=${encodeURIComponent(savedAccountId)}`, { method: 'POST', headers: headers(), body: JSON.stringify({ accountId: savedAccountId, rules: keywords }) });
     if (!kwRes.ok) throw new Error('keyword save failed');
+    const preservedId = currentAccountId;
     await loadAccounts();
+    currentAccountId = preservedId;
     await loadKeywords();
+    renderAccountSelector();
     showStatus('Automatización guardada', 'success');
   } catch (err) {
     console.error(err);
