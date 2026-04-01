@@ -1,13 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { writeFileSync, unlinkSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { randomUUID } from 'node:crypto';
 import { loadKeywordRules, matchKeyword } from '../services/keyword.service.js';
 import type { KeywordRule } from '../types/keyword.types.js';
 
 function writeTempRules(rules: KeywordRule[]): string {
-  const path = join(tmpdir(), `test-keywords-${Date.now()}.json`);
-  writeFileSync(path, JSON.stringify(rules));
+  const path = join(tmpdir(), `test-keywords-${randomUUID()}.json`);
+  writeFileSync(path, JSON.stringify(rules), 'utf-8');
   return path;
 }
 
