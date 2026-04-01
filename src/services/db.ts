@@ -20,8 +20,35 @@ export async function initDb(): Promise<void> {
   const db = getDb();
 
   await db`
+    CREATE TABLE IF NOT EXISTS instagram_accounts (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      page_id TEXT NOT NULL UNIQUE,
+      access_token TEXT NOT NULL,
+      verify_token TEXT NOT NULL,
+      app_secret TEXT NOT NULL,
+      resend_api_key TEXT,
+      email_from TEXT,
+      welcome_email_template TEXT,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await db`
+    CREATE TABLE IF NOT EXISTS keyword_rule_sets (
+      account_id TEXT PRIMARY KEY REFERENCES instagram_accounts(id) ON DELETE CASCADE,
+      rules_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await db`
     CREATE TABLE IF NOT EXISTS leads (
       id SERIAL PRIMARY KEY,
+      account_id TEXT NOT NULL DEFAULT 'legacy-default',
       ig_user_id TEXT NOT NULL,
       ig_username TEXT,
       name TEXT,
@@ -35,13 +62,13 @@ export async function initDb(): Promise<void> {
     )
   `;
 
-  await db`
-    CREATE UNIQUE INDEX IF NOT EXISTS leads_ig_user_id_idx ON leads (ig_user_id)
-  `;
+  await db`ALTER TABLE leads ADD COLUMN IF NOT EXISTS account_id TEXT NOT NULL DEFAULT 'legacy-default'`;
+  await db`CREATE UNIQUE INDEX IF NOT EXISTS leads_account_ig_user_id_idx ON leads (account_id, ig_user_id)`;
 
   await db`
     CREATE TABLE IF NOT EXISTS dm_log (
       id SERIAL PRIMARY KEY,
+      account_id TEXT NOT NULL DEFAULT 'legacy-default',
       ig_user_id TEXT NOT NULL,
       direction TEXT NOT NULL,
       message_type TEXT,
@@ -51,9 +78,8 @@ export async function initDb(): Promise<void> {
     )
   `;
 
-  await db`
-    CREATE INDEX IF NOT EXISTS dm_log_ig_user_id_idx ON dm_log (ig_user_id)
-  `;
+  await db`ALTER TABLE dm_log ADD COLUMN IF NOT EXISTS account_id TEXT NOT NULL DEFAULT 'legacy-default'`;
+  await db`CREATE INDEX IF NOT EXISTS dm_log_account_ig_user_id_idx ON dm_log (account_id, ig_user_id)`;
 
   logger.info('Database initialized');
 }

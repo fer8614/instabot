@@ -2,7 +2,10 @@
   {
     "id": "freebie",
     "keyword": "FREEBIE",
-    "aliases": ["FREE", "DOWNLOAD"],
+    "aliases": [
+      "FREE",
+      "DOWNLOAD"
+    ],
     "matchType": "contains",
     "priority": 1,
     "enabled": true,
@@ -34,7 +37,10 @@
   {
     "id": "course",
     "keyword": "COURSE",
-    "aliases": ["CLASS", "LEARN"],
+    "aliases": [
+      "CLASS",
+      "LEARN"
+    ],
     "matchType": "contains",
     "priority": 2,
     "enabled": true,

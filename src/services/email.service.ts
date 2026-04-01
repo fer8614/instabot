@@ -3,36 +3,51 @@ import { resolve } from 'node:path';
 import { Resend } from 'resend';
 import { getEnv } from '../config/env.js';
 import { logger } from '../utils/logger.js';
+import { getCurrentAccount } from './request-context.service.js';
 
-let resend: Resend | undefined;
-let templateHtml: string | undefined;
+const resendClients = new Map<string, Resend>();
+const templateCache = new Map<string, string>();
+
+function accountSettings() {
+  const env = getEnv();
+  const account = getCurrentAccount();
+  return {
+    accountId: account?.id ?? 'legacy-default',
+    resendApiKey: account?.resendApiKey ?? env.RESEND_API_KEY,
+    emailFrom: account?.emailFrom ?? env.EMAIL_FROM,
+    welcomeEmailTemplate: account?.welcomeEmailTemplate ?? env.WELCOME_EMAIL_TEMPLATE,
+  };
+}
 
 function getResend(): Resend {
-  if (!resend) {
-    const env = getEnv();
-    if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
-    resend = new Resend(env.RESEND_API_KEY);
+  const settings = accountSettings();
+  if (!settings.resendApiKey) throw new Error('RESEND_API_KEY not configured');
+  if (!resendClients.has(settings.accountId)) {
+    resendClients.set(settings.accountId, new Resend(settings.resendApiKey));
   }
-  return resend;
+  return resendClients.get(settings.accountId)!;
 }
 
 function getTemplate(): string {
-  if (!templateHtml) {
-    const filename = getEnv().WELCOME_EMAIL_TEMPLATE || 'bienvenido.html';
+  const settings = accountSettings();
+  const filename = settings.welcomeEmailTemplate || 'bienvenido.html';
+  const cacheKey = `${settings.accountId}:${filename}`;
+  if (!templateCache.has(cacheKey)) {
     const templatePath = resolve(process.cwd(), 'email-templates', filename);
-    templateHtml = readFileSync(templatePath, 'utf-8');
+    templateCache.set(cacheKey, readFileSync(templatePath, 'utf-8'));
   }
-  return templateHtml;
+  return templateCache.get(cacheKey)!;
 }
 
 export async function sendWelcomeEmail(to: string, fullName: string): Promise<void> {
   const client = getResend();
+  const settings = accountSettings();
   const html = getTemplate().replace('{{1.record.full_name}}', fullName);
 
   const { error } = await client.emails.send({
-    from: getEnv().EMAIL_FROM,
+    from: settings.emailFrom,
     to,
-    subject: '¡Bienvenido a Golem Lab!',
+    subject: '¡Bienvenido!',
     html,
   });
 
@@ -51,6 +66,7 @@ export async function sendResourceEmail(
   resourceUrl: string,
 ): Promise<void> {
   const client = getResend();
+  const settings = accountSettings();
 
   const html = `
 <!DOCTYPE html>
@@ -59,7 +75,6 @@ export async function sendResourceEmail(
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #ffffff; padding: 20px; margin: 0; line-height: 1.6;">
   <div style="max-width: 600px; margin: 0 auto; background: #111111; border-radius: 12px; border: 1px solid #333333; overflow: hidden;">
     <div style="background: linear-gradient(135deg, #4CBBA7, #439B8A); color: #111111; padding: 40px 30px; text-align: center;">
-      <img src="https://golemlab.ai/golem-lab-logo.png" alt="Golem Lab" style="width: 64px; height: 64px; border-radius: 12px; margin: 0 auto 20px; display: block;" />
       <h1 style="font-size: 28px; margin: 0 0 10px 0;">Hola ${fullName}!</h1>
       <p style="font-size: 18px; margin: 0;">Aca tenes lo que pediste</p>
     </div>
@@ -68,15 +83,12 @@ export async function sendResourceEmail(
       <a href="${resourceUrl}" style="display: inline-block; background: linear-gradient(135deg, #4CBBA7, #439B8A); color: #000000; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 18px; box-shadow: 0 4px 20px rgba(76, 187, 167, 0.4);">${resourceTitle}</a>
       <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">Cualquier duda me escribis por Instagram.</p>
     </div>
-    <div style="background: #0a0a0a; padding: 20px; text-align: center; font-size: 13px; color: #6b7280; border-top: 1px solid #333333;">
-      <p style="margin: 5px 0;"><strong>© 2025 Golem Lab</strong></p>
-    </div>
   </div>
 </body>
 </html>`;
 
   const { error } = await client.emails.send({
-    from: getEnv().EMAIL_FROM,
+    from: settings.emailFrom,
     to,
     subject: `Tu link: ${resourceTitle}`,
     html,
