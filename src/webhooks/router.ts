@@ -60,6 +60,7 @@ webhookRouter.post('/', verifySignature, (req: Request, res: Response) => {
         loadKeywordRules('legacy-default');
       }
 
+      logger.info({ object: payload.object, entryCount: payload.entry?.length, firstEntry: JSON.stringify(payload.entry?.[0]).substring(0, 500) }, 'Raw webhook payload');
       const events = parseWebhookPayload(payload);
       logger.info({ eventCount: events.length, accountId: account?.id ?? 'legacy-default' }, 'Processing webhook events');
 
