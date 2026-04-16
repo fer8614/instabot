@@ -79,6 +79,28 @@ export async function sendButtonDM(
   );
 }
 
+export async function sendPrivateReply(
+  commentId: string,
+  text: string,
+): Promise<InstagramSendMessageResponse> {
+  const account = requireAccount();
+
+  logger.info({ commentId, accountId: account.id }, 'Sending private reply to comment');
+
+  return withRetry<InstagramSendMessageResponse>(() =>
+    fetch(`${API_BASE}/${commentId}/private_replies`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${account.accessToken}`,
+      },
+      body: JSON.stringify({
+        message: text,
+      }),
+    }),
+  );
+}
+
 export async function getMediaOwner(mediaId: string): Promise<{ id: string; username: string } | null> {
   const account = requireAccount();
 

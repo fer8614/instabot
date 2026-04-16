@@ -1,7 +1,7 @@
 import type { MetaCommentValue } from '../types/meta.types.js';
 import { matchKeyword } from '../services/keyword.service.js';
 import { isOnCooldown, isRateLimited, recordTrigger } from '../services/cooldown.service.js';
-import { sendTextDM, sendButtonDM } from '../services/instagram.service.js';
+import { sendTextDM, sendButtonDM, sendPrivateReply } from '../services/instagram.service.js';
 import { renderTemplate } from '../utils/templates.js';
 import { logger } from '../utils/logger.js';
 import { upsertLead } from '../services/lead.service.js';
@@ -62,16 +62,20 @@ export async function handleComment(comment: MetaCommentValue): Promise<void> {
   const vars = { username };
   const renderedText = renderTemplate(rule.response.text, vars);
 
-  // 6. Send DM
+  // 6. Send DM via private reply (required for comment-triggered messages)
   try {
-    logger.info({ userId, responseType: rule.response.type, hasButtons: rule.response?.buttons?.length }, 'About to send DM');
-    
+    logger.info({ userId, commentId, responseType: rule.response.type }, 'Sending private reply to comment');
+    await sendPrivateReply(commentId, renderedText);
+
+    // If buttons are configured, send them as a follow-up via regular DM
+    // (the private reply opens a messaging window)
     if (rule.response.type === 'button' && rule.response.buttons?.length) {
-      logger.info({ userId, buttonCount: rule.response.buttons.length }, 'Sending button DM');
-      await sendButtonDM(userId, renderedText, rule.response.buttons);
-    } else {
-      logger.info({ userId }, 'Sending text DM');
-      await sendTextDM(userId, renderedText);
+      try {
+        await sendButtonDM(userId, renderedText, rule.response.buttons);
+        logger.info({ userId, buttonCount: rule.response.buttons.length }, 'Follow-up button DM sent');
+      } catch (btnErr) {
+        logger.warn({ err: btnErr, userId }, 'Could not send button follow-up (private reply was sent)');
+      }
     }
 
     // 7. Record trigger & log DM
