@@ -1,7 +1,7 @@
 import type { MetaCommentValue } from '../types/meta.types.js';
 import { matchKeyword } from '../services/keyword.service.js';
 import { isOnCooldown, isRateLimited, recordTrigger } from '../services/cooldown.service.js';
-import { sendTextDM, sendButtonDM, sendPrivateReply } from '../services/instagram.service.js';
+import { sendTextDM, sendButtonDM, sendCommentReplyDM, sendCommentReplyButtonDM, replyToComment } from '../services/instagram.service.js';
 import { renderTemplate } from '../utils/templates.js';
 import { logger } from '../utils/logger.js';
 import { upsertLead } from '../services/lead.service.js';
@@ -62,20 +62,14 @@ export async function handleComment(comment: MetaCommentValue): Promise<void> {
   const vars = { username };
   const renderedText = renderTemplate(rule.response.text, vars);
 
-  // 6. Send DM via private reply (required for comment-triggered messages)
+  // 6. Send DM via comment_id recipient (required for comment-triggered messages)
   try {
-    logger.info({ userId, commentId, responseType: rule.response.type }, 'Sending private reply to comment');
-    await sendPrivateReply(commentId, renderedText);
+    logger.info({ userId, commentId, responseType: rule.response.type }, 'Sending DM in response to comment');
 
-    // If buttons are configured, send them as a follow-up via regular DM
-    // (the private reply opens a messaging window)
     if (rule.response.type === 'button' && rule.response.buttons?.length) {
-      try {
-        await sendButtonDM(userId, renderedText, rule.response.buttons);
-        logger.info({ userId, buttonCount: rule.response.buttons.length }, 'Follow-up button DM sent');
-      } catch (btnErr) {
-        logger.warn({ err: btnErr, userId }, 'Could not send button follow-up (private reply was sent)');
-      }
+      await sendCommentReplyButtonDM(commentId, renderedText, rule.response.buttons);
+    } else {
+      await sendCommentReplyDM(commentId, renderedText);
     }
 
     // 7. Record trigger & log DM
@@ -88,15 +82,20 @@ export async function handleComment(comment: MetaCommentValue): Promise<void> {
       content: renderedText,
     }).catch((err) => logger.error({ err }, 'Failed to log DM'));
 
-    // 8. If askEmail, the response already has a postback button.
-    //    The postback handler will take over when the user clicks it.
-
     logger.info(
       { userId, username, ruleId: rule.id, commentId },
       'DM sent successfully',
     );
   } catch (err) {
     logger.error({ err, userId, ruleId: rule.id, errorMessage: err instanceof Error ? err.message : String(err) }, 'Failed to send DM');
+  }
+
+  // 8. Reply to the comment publicly
+  try {
+    await replyToComment(commentId, `@${username} ¡Te envié un mensaje! Revisa tu DM 💌`);
+    logger.info({ commentId, username }, 'Public comment reply sent');
+  } catch (err) {
+    logger.warn({ err, commentId, errorMessage: err instanceof Error ? err.message : String(err) }, 'Could not reply to comment publicly');
   }
 }
 

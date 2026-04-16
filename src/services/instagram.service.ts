@@ -79,24 +79,87 @@ export async function sendButtonDM(
   );
 }
 
-export async function sendPrivateReply(
+export async function sendCommentReplyDM(
   commentId: string,
   text: string,
 ): Promise<InstagramSendMessageResponse> {
   const account = requireAccount();
 
-  logger.info({ commentId, accountId: account.id }, 'Sending private reply to comment');
+  logger.info({ commentId, accountId: account.id }, 'Sending DM via comment_id recipient');
 
   return withRetry<InstagramSendMessageResponse>(() =>
-    fetch(`${API_BASE}/${commentId}/private_replies`, {
+    fetch(`${API_BASE}/me/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${account.accessToken}`,
       },
       body: JSON.stringify({
-        message: text,
+        recipient: { comment_id: commentId },
+        message: { text },
       }),
+    }),
+  );
+}
+
+export async function sendCommentReplyButtonDM(
+  commentId: string,
+  text: string,
+  buttons: MessageButton[],
+): Promise<InstagramSendMessageResponse> {
+  const account = requireAccount();
+
+  logger.info({ commentId, buttonCount: buttons.length, accountId: account.id }, 'Sending button DM via comment_id recipient');
+
+  return withRetry<InstagramSendMessageResponse>(() =>
+    fetch(`${API_BASE}/me/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${account.accessToken}`,
+      },
+      body: JSON.stringify({
+        recipient: { comment_id: commentId },
+        message: {
+          attachment: {
+            type: 'template',
+            payload: {
+              template_type: 'generic',
+              elements: [
+                {
+                  title: text,
+                  buttons: buttons.map((b) => ({
+                    type: b.type,
+                    title: b.title,
+                    url: b.url,
+                    payload: b.payload,
+                  })),
+                },
+              ],
+            },
+          },
+        },
+      }),
+    }),
+  );
+}
+
+export async function replyToComment(
+  commentId: string,
+  message: string,
+): Promise<{ id: string }> {
+  const account = requireAccount();
+
+  logger.info({ commentId, accountId: account.id }, 'Replying to comment publicly');
+
+  return withRetry<{ id: string }>(() =>
+    fetch(`${API_BASE}/${commentId}/replies`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${account.accessToken}`,
+      },
+      body: JSON.stringify({ message }),
     }),
   );
 }
