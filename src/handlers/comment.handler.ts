@@ -25,11 +25,11 @@ export async function handleComment(comment: MetaCommentValue): Promise<void> {
   const rule = matchKeyword(text);
 
   if (!rule) {
-    logger.debug({ text }, 'No keyword match');
+    logger.info({ text }, 'No keyword match found');
     return;
   }
 
-  logger.info({ ruleId: rule.id, keyword: rule.keyword }, 'Keyword matched');
+  logger.info({ ruleId: rule.id, keyword: rule.keyword, responseType: rule.response?.type, hasButtons: rule.response?.buttons?.length }, 'Keyword matched');
 
   // 2. Check rate limit
   if (isRateLimited(userId)) {
