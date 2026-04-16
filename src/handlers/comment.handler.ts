@@ -61,9 +61,13 @@ export async function handleComment(comment: MetaCommentValue): Promise<void> {
 
   // 6. Send DM
   try {
+    logger.info({ userId, responseType: rule.response.type, hasButtons: rule.response?.buttons?.length }, 'About to send DM');
+    
     if (rule.response.type === 'button' && rule.response.buttons?.length) {
+      logger.info({ userId, buttonCount: rule.response.buttons.length }, 'Sending button DM');
       await sendButtonDM(userId, renderedText, rule.response.buttons);
     } else {
+      logger.info({ userId }, 'Sending text DM');
       await sendTextDM(userId, renderedText);
     }
 
@@ -85,7 +89,7 @@ export async function handleComment(comment: MetaCommentValue): Promise<void> {
       'DM sent successfully',
     );
   } catch (err) {
-    logger.error({ err, userId, ruleId: rule.id }, 'Failed to send DM');
+    logger.error({ err, userId, ruleId: rule.id, errorMessage: err instanceof Error ? err.message : String(err) }, 'Failed to send DM');
   }
 }
 
