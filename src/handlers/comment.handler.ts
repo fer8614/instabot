@@ -5,6 +5,7 @@ import { sendTextDM, sendButtonDM } from '../services/instagram.service.js';
 import { renderTemplate } from '../utils/templates.js';
 import { logger } from '../utils/logger.js';
 import { upsertLead } from '../services/lead.service.js';
+import { getCurrentAccount } from '../services/request-context.service.js';
 import { logDM } from '../services/dmlog.service.js';
 
 export function maskEmail(email: string): string {
@@ -22,7 +23,9 @@ export async function handleComment(comment: MetaCommentValue): Promise<void> {
   logger.info({ userId, username, text, commentId }, 'Processing comment');
 
   // 1. Match against keyword rules
-  const rule = matchKeyword(text);
+  const account = getCurrentAccount();
+  const accountId = account?.id ?? 'legacy-default';
+  const rule = matchKeyword(text, accountId);
 
   if (!rule) {
     logger.info({ text }, 'No keyword match found');

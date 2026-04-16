@@ -8,6 +8,7 @@ import { getKeywordRules, matchKeyword } from '../services/keyword.service.js';
 import { isOnCooldown, isRateLimited, recordTrigger } from '../services/cooldown.service.js';
 import { renderTemplate } from '../utils/templates.js';
 import { getEnv } from '../config/env.js';
+import { getCurrentAccount } from '../services/request-context.service.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -28,12 +29,15 @@ export async function handleMessage(event: MetaMessagingEvent): Promise<void> {
 
   if (!text) return;
 
+  const currentAccount = getCurrentAccount();
+  const accountId = currentAccount?.id ?? 'legacy-default';
+
   try {
     const lead = await getLeadByIgUserId(senderId);
 
     // 1. Email collection flow — but if text matches a keyword, handle as keyword instead
     if (lead && (lead.status === 'email_pending' || lead.status === 'email_confirming' || lead.status === 'email_reminded')) {
-      const keywordMatch = matchKeyword(text);
+      const keywordMatch = matchKeyword(text, accountId);
       if (keywordMatch) {
         await handleKeywordDM(senderId, keywordMatch, lead);
         return;
@@ -43,7 +47,7 @@ export async function handleMessage(event: MetaMessagingEvent): Promise<void> {
     }
 
     // 2. Keyword matching (ice breakers, manual keyword DMs)
-    const rule = matchKeyword(text);
+    const rule = matchKeyword(text, accountId);
     if (rule) {
       await handleKeywordDM(senderId, rule, lead);
       return;
