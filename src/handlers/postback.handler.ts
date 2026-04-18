@@ -1,12 +1,11 @@
 import type { MetaMessagingEvent } from '../types/meta.types.js';
 import { logger } from '../utils/logger.js';
 import { getLeadByIgUserId, setLeadStatus } from '../services/lead.service.js';
-import { getKeywordRules, matchKeyword } from '../services/keyword.service.js';
+import { getKeywordRules } from '../services/keyword.service.js';
 import { sendFollowUp, maskEmail } from './comment.handler.js';
 import { sendTextDM, sendButtonDM } from '../services/instagram.service.js';
 import { sendResourceEmail, sendWelcomeEmail } from '../services/email.service.js';
 import { getEnv } from '../config/env.js';
-import { getCurrentAccount } from '../services/request-context.service.js';
 import { renderTemplate } from '../utils/templates.js';
 import { isOnCooldown, isRateLimited, recordTrigger } from '../services/cooldown.service.js';
 import { logDM } from '../services/dmlog.service.js';
@@ -21,9 +20,9 @@ export async function handlePostback(event: MetaMessagingEvent): Promise<void> {
   if (!payload) return;
 
   // Check if payload matches a keyword (e.g., SI_PASADO, VER_MAS, SIGUIENTE)
-  const account = getCurrentAccount();
-  const accountId = account?.id ?? 'legacy-default';
-  const keywordRule = matchKeyword(payload, accountId);
+  // Search directly in keyword rules to avoid context issues
+  const allKeywords = getKeywordRules();
+  const keywordRule = allKeywords.find((k) => k.keyword.toUpperCase() === payload.toUpperCase());
 
   if (keywordRule) {
     // Payload matches a keyword — respond with that keyword
@@ -118,7 +117,7 @@ async function handleChangeEmail(senderId: string, keywordId: string): Promise<v
 
 async function handleKeywordPayload(
   senderId: string,
-  rule: ReturnType<typeof matchKeyword>,
+  rule: ReturnType<typeof getKeywordRules>[number],
 ): Promise<void> {
   if (!rule) return;
 
