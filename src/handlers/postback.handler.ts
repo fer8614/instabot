@@ -1,11 +1,15 @@
 import type { MetaMessagingEvent } from '../types/meta.types.js';
 import { logger } from '../utils/logger.js';
 import { getLeadByIgUserId, setLeadStatus } from '../services/lead.service.js';
-import { getKeywordRules } from '../services/keyword.service.js';
+import { getKeywordRules, matchKeyword } from '../services/keyword.service.js';
 import { sendFollowUp, maskEmail } from './comment.handler.js';
 import { sendTextDM, sendButtonDM } from '../services/instagram.service.js';
 import { sendResourceEmail, sendWelcomeEmail } from '../services/email.service.js';
 import { getEnv } from '../config/env.js';
+import { getCurrentAccount } from '../services/request-context.service.js';
+import { renderTemplate } from '../utils/templates.js';
+import { isOnCooldown, isRateLimited, recordTrigger } from '../services/cooldown.service.js';
+import { logDM } from '../services/dmlog.service.js';
 
 export async function handlePostback(event: MetaMessagingEvent): Promise<void> {
   const senderId = event.sender.id;
@@ -16,6 +20,18 @@ export async function handlePostback(event: MetaMessagingEvent): Promise<void> {
 
   if (!payload) return;
 
+  // Check if payload matches a keyword (e.g., SI_PASADO, VER_MAS, SIGUIENTE)
+  const account = getCurrentAccount();
+  const accountId = account?.id ?? 'legacy-default';
+  const keywordRule = matchKeyword(payload, accountId);
+
+  if (keywordRule) {
+    // Payload matches a keyword — respond with that keyword
+    await handleKeywordPayload(senderId, keywordRule);
+    return;
+  }
+
+  // Handle special payloads
   if (payload.startsWith('start_email:')) {
     await handleStartEmail(senderId, payload.replace('start_email:', ''));
   } else if (payload.startsWith('confirm_email:')) {
@@ -97,5 +113,52 @@ async function handleChangeEmail(senderId: string, keywordId: string): Promise<v
     logger.info({ senderId, keywordId }, 'User wants to change email');
   } catch (err) {
     logger.error({ err, senderId }, 'Error handling change email postback');
+  }
+}
+
+async function handleKeywordPayload(
+  senderId: string,
+  rule: ReturnType<typeof matchKeyword>,
+): Promise<void> {
+  if (!rule) return;
+
+  try {
+    // Rate limit & cooldown checks
+    if (isRateLimited(senderId)) {
+      logger.warn({ senderId }, 'User rate limited (max DMs/hour)');
+      return;
+    }
+    if (isOnCooldown(senderId, rule.id, rule.cooldownMinutes)) {
+      logger.info({ senderId, ruleId: rule.id }, 'Skipped — user on cooldown');
+      return;
+    }
+
+    // Get lead for username
+    const lead = await getLeadByIgUserId(senderId);
+    let username = lead?.ig_username ?? 'amigo';
+
+    // Render template
+    const renderedText = renderTemplate(rule.response.text, { username });
+
+    // Send response
+    if (rule.response.type === 'button' && rule.response.buttons?.length) {
+      await sendButtonDM(senderId, renderedText, rule.response.buttons);
+    } else {
+      await sendTextDM(senderId, renderedText);
+    }
+
+    // Record trigger & log
+    recordTrigger(senderId, rule.id);
+    logDM({
+      igUserId: senderId,
+      direction: 'outbound',
+      messageType: rule.response.type,
+      keywordId: rule.id,
+      content: renderedText,
+    }).catch((err) => logger.error({ err }, 'Failed to log DM'));
+
+    logger.info({ senderId, ruleId: rule.id }, 'Keyword payload response sent');
+  } catch (err) {
+    logger.error({ err, senderId, ruleId: rule.id }, 'Error handling keyword payload');
   }
 }
