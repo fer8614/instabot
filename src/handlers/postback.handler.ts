@@ -6,6 +6,7 @@ import { sendFollowUp, maskEmail } from './comment.handler.js';
 import { sendTextDM, sendButtonDM } from '../services/instagram.service.js';
 import { sendResourceEmail, sendWelcomeEmail } from '../services/email.service.js';
 import { getEnv } from '../config/env.js';
+import { getCurrentAccount } from '../services/request-context.service.js';
 import { renderTemplate } from '../utils/templates.js';
 import { isOnCooldown, isRateLimited, recordTrigger } from '../services/cooldown.service.js';
 import { logDM } from '../services/dmlog.service.js';
@@ -20,9 +21,12 @@ export async function handlePostback(event: MetaMessagingEvent): Promise<void> {
   if (!payload) return;
 
   // Check if payload matches a keyword (e.g., SI_PASADO, VER_MAS, SIGUIENTE)
-  // Search directly in keyword rules to avoid context issues
-  const allKeywords = getKeywordRules();
+  const account = getCurrentAccount();
+  const accountId = account?.id ?? 'legacy-default';
+  const allKeywords = getKeywordRules(accountId);
   const keywordRule = allKeywords.find((k) => k.keyword.toUpperCase() === payload.toUpperCase());
+
+  logger.info({ payload, accountId, keywordCount: allKeywords.length, matched: !!keywordRule }, 'Postback keyword lookup');
 
   if (keywordRule) {
     // Payload matches a keyword — respond with that keyword
