@@ -49,6 +49,7 @@ function setupEventListeners() {
   });
   document.getElementById('add-response-btn').addEventListener('click', () => addButton('response'));
   document.getElementById('add-followup-btn').addEventListener('click', () => addButton('followup'));
+  document.getElementById('add-scheduled-btn').addEventListener('click', addScheduledMessage);
   apiKeyInput.addEventListener('change', (e) => {
     apiKey = e.target.value;
     localStorage.setItem('adminApiKey', apiKey);
@@ -166,7 +167,7 @@ function renderKeywords() {
   container.innerHTML = keywords.map(kw => `
     <div class="keyword-card ${kw.enabled ? '' : 'disabled'}" data-id="${kw.id}">
       <div class="keyword-card-header"><div class="keyword-card-title"><h4>${escapeHtml(kw.keyword)}</h4><span class="badge ${kw.enabled ? 'badge-enabled' : 'badge-disabled'}">${kw.enabled ? 'Activo' : 'Inactivo'}</span><span class="badge badge-match">${kw.matchType}</span></div></div>
-      <div class="keyword-card-meta"><span>Prioridad: ${kw.priority}</span><span>Cooldown: ${kw.cooldownMinutes}min</span>${kw.askEmail ? '<span>📧 Email</span>' : ''}</div>
+      <div class="keyword-card-meta"><span>Prioridad: ${kw.priority}</span><span>Cooldown: ${kw.cooldownMinutes}min</span>${kw.askEmail ? '<span>📧 Email</span>' : ''}${kw.scheduledMessages?.length ? `<span>⏰ ${kw.scheduledMessages.length} prog.</span>` : ''}</div>
       <div class="keyword-card-preview">${escapeHtml((kw.response?.text || 'Sin mensaje').substring(0, 100))}...</div>
     </div>
   `).join('');
@@ -231,6 +232,7 @@ function openKeywordModal(keyword = null) {
     renderButtons('response', []);
     renderButtons('followup', []);
   }
+  renderScheduledMessages(keyword?.scheduledMessages || []);
   modal.classList.add('active');
 }
 
@@ -261,6 +263,82 @@ function removeButton(type, idx) {
   if (items[idx]) items[idx].remove();
 }
 window.removeButton = removeButton;
+window.removeScheduledMessage = removeScheduledMessage;
+
+function renderScheduledMessages(messages) {
+  const container = document.getElementById('scheduled-messages-list');
+  container.innerHTML = messages.map((msg, idx) => `
+    <div class="scheduled-item" data-idx="${idx}" style="border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; background: var(--bg-primary);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <strong>Mensaje ${idx + 1}</strong>
+        <button type="button" class="remove-btn" onclick="removeScheduledMessage(${idx})">&times;</button>
+      </div>
+      <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+        <div class="form-group" style="margin-bottom: 0;"><label>Delay (minutos)</label><input type="number" class="sched-delay" value="${msg.delayMinutes || 30}" min="1" max="1440"></div>
+        <div class="form-group" style="margin-bottom: 0;"><label>Tipo</label><select class="sched-type"><option value="text" ${msg.type === 'text' ? 'selected' : ''}>Solo Texto</option><option value="button" ${msg.type === 'button' ? 'selected' : ''}>Con Botón</option></select></div>
+      </div>
+      <div class="form-group" style="margin-bottom: 8px;"><label>Texto</label><textarea class="sched-text" rows="2">${escapeHtml(msg.text || '')}</textarea></div>
+      <div class="sched-buttons-section" style="display: ${msg.type === 'button' ? 'block' : 'none'};">
+        <label>Botones</label>
+        <div class="sched-buttons">${(msg.buttons || []).map((btn, bi) => `
+          <div class="button-item" data-idx="${bi}">
+            <div class="button-row"><input type="text" placeholder="Título" value="${escapeHtml(btn.title || '')}" class="btn-title"><select class="btn-type"><option value="postback" ${btn.type === 'postback' ? 'selected' : ''}>Postback</option><option value="web_url" ${btn.type === 'web_url' ? 'selected' : ''}>URL Web</option></select><button type="button" class="remove-btn" onclick="this.closest('.button-item').remove()">&times;</button></div>
+            <div class="button-row"><input type="text" placeholder="payload o URL" value="${escapeHtml(btn.payload || btn.url || '')}" class="btn-payload" style="grid-column: 1 / -1;"></div>
+          </div>`).join('')}</div>
+        <button type="button" class="btn btn-small" onclick="addScheduledButton(${idx})">+ Botón</button>
+      </div>
+    </div>
+  `).join('');
+  container.querySelectorAll('.sched-type').forEach((sel, idx) => {
+    sel.addEventListener('change', () => {
+      const item = container.querySelectorAll('.scheduled-item')[idx];
+      item.querySelector('.sched-buttons-section').style.display = sel.value === 'button' ? 'block' : 'none';
+    });
+  });
+}
+
+function addScheduledMessage() {
+  const container = document.getElementById('scheduled-messages-list');
+  const current = collectScheduledMessages();
+  current.push({ delayMinutes: 30, type: 'text', text: '', buttons: [] });
+  renderScheduledMessages(current);
+}
+
+function removeScheduledMessage(idx) {
+  const current = collectScheduledMessages();
+  current.splice(idx, 1);
+  renderScheduledMessages(current);
+}
+
+function addScheduledButton(schedIdx) {
+  const container = document.getElementById('scheduled-messages-list');
+  const items = container.querySelectorAll('.scheduled-item');
+  const item = items[schedIdx];
+  if (!item) return;
+  const buttonsDiv = item.querySelector('.sched-buttons');
+  const div = document.createElement('div');
+  div.className = 'button-item';
+  div.innerHTML = `<div class="button-row"><input type="text" placeholder="Título" class="btn-title"><select class="btn-type"><option value="postback">Postback</option><option value="web_url">URL Web</option></select><button type="button" class="remove-btn" onclick="this.closest('.button-item').remove()">&times;</button></div><div class="button-row"><input type="text" placeholder="payload o URL" class="btn-payload" style="grid-column: 1 / -1;"></div>`;
+  buttonsDiv.appendChild(div);
+}
+window.addScheduledButton = addScheduledButton;
+
+function collectScheduledMessages() {
+  const container = document.getElementById('scheduled-messages-list');
+  return Array.from(container.querySelectorAll('.scheduled-item')).map(item => {
+    const delay = parseInt(item.querySelector('.sched-delay').value) || 30;
+    const type = item.querySelector('.sched-type').value;
+    const text = item.querySelector('.sched-text').value.trim();
+    const buttons = Array.from(item.querySelectorAll('.sched-buttons .button-item')).map(bi => {
+      const title = bi.querySelector('.btn-title').value.trim();
+      const btnType = bi.querySelector('.btn-type').value;
+      const payload = bi.querySelector('.btn-payload').value.trim();
+      if (!title || !payload) return null;
+      return btnType === 'web_url' ? { type: 'web_url', title, url: payload } : { type: 'postback', title, payload };
+    }).filter(Boolean);
+    return { delayMinutes: delay, type, text, buttons: type === 'button' ? buttons : undefined };
+  });
+}
 
 async function saveKeyword() {
   const id = document.getElementById('kw-id').value.trim();
@@ -286,6 +364,7 @@ async function saveKeyword() {
   };
   if (newKeyword.response.type === 'button') newKeyword.response.buttons = collectButtons('response');
   if (newKeyword.followUp.type === 'button') newKeyword.followUp.buttons = collectButtons('followup');
+  newKeyword.scheduledMessages = collectScheduledMessages();
   const existingIdx = keywords.findIndex(k => k.id === id);
   if (existingIdx >= 0) keywords[existingIdx] = newKeyword; else keywords.push(newKeyword);
   renderKeywords();

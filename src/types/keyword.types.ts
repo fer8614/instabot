@@ -11,6 +11,13 @@ export interface KeywordResponse {
   buttons?: MessageButton[];
 }
 
+export interface ScheduledMessage {
+  delayMinutes: number;
+  type: 'text' | 'button';
+  text: string;
+  buttons?: MessageButton[];
+}
+
 export interface KeywordRule {
   id: string;
   keyword: string;
@@ -22,4 +29,5 @@ export interface KeywordRule {
   askEmail?: boolean;
   response: KeywordResponse;
   followUp?: KeywordResponse;
+  scheduledMessages?: ScheduledMessage[];
 }

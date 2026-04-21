@@ -10,6 +10,7 @@ import { getCurrentAccount } from '../services/request-context.service.js';
 import { renderTemplate } from '../utils/templates.js';
 import { isOnCooldown, isRateLimited, recordTrigger } from '../services/cooldown.service.js';
 import { logDM } from '../services/dmlog.service.js';
+import { createScheduledMessages } from '../services/scheduled-message.service.js';
 
 export async function handlePostback(event: MetaMessagingEvent): Promise<void> {
   const senderId = event.sender.id;
@@ -159,6 +160,14 @@ async function handleKeywordPayload(
       keywordId: rule.id,
       content: renderedText,
     }).catch((err) => logger.error({ err }, 'Failed to log DM'));
+
+    // Create scheduled messages if configured
+    if (rule.scheduledMessages?.length) {
+      const accountId = getCurrentAccount()?.id ?? 'legacy-default';
+      createScheduledMessages(accountId, senderId, rule.id, rule.scheduledMessages).catch((err) =>
+        logger.error({ err, senderId, ruleId: rule.id }, 'Failed to create scheduled messages'),
+      );
+    }
 
     logger.info({ senderId, ruleId: rule.id }, 'Keyword payload response sent');
   } catch (err) {

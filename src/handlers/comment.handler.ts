@@ -7,6 +7,7 @@ import { logger } from '../utils/logger.js';
 import { upsertLead } from '../services/lead.service.js';
 import { getCurrentAccount } from '../services/request-context.service.js';
 import { logDM } from '../services/dmlog.service.js';
+import { createScheduledMessages } from '../services/scheduled-message.service.js';
 
 export function maskEmail(email: string): string {
   const [local, domain] = email.split('@');
@@ -98,6 +99,13 @@ export async function handleComment(comment: MetaCommentValue): Promise<void> {
       { userId, username, ruleId: rule.id, commentId },
       'DM sent successfully',
     );
+
+    // 7b. Create scheduled messages if configured
+    if (rule.scheduledMessages?.length) {
+      createScheduledMessages(accountId, userId, rule.id, rule.scheduledMessages).catch((err) =>
+        logger.error({ err, userId, ruleId: rule.id }, 'Failed to create scheduled messages'),
+      );
+    }
   } catch (err) {
     logger.error({ err, userId, ruleId: rule.id, errorMessage: err instanceof Error ? err.message : String(err) }, 'Failed to send DM');
   }

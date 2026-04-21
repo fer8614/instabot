@@ -5,6 +5,7 @@ import { logger } from './utils/logger.js';
 import { loadKeywordRules } from './services/keyword.service.js';
 import { initDb } from './services/db.js';
 import { startEmailReminder } from './services/reminder.service.js';
+import { startScheduledMessages } from './services/scheduled-message.service.js';
 import { webhookRouter } from './webhooks/router.js';
 import { adminRouter } from './webhooks/admin.router.js';
 
@@ -108,7 +109,8 @@ app.listen(env.PORT, '0.0.0.0', () => {
 initDb()
   .then(() => {
     startEmailReminder();
-    logger.info('Database initialized and email reminders started');
+    startScheduledMessages();
+    logger.info('Database initialized and services started');
   })
   .catch((err) => {
     logger.warn({ err }, 'Database initialization failed - webhooks will not work until DB is configured');
