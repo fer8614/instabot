@@ -1,5 +1,5 @@
 import type { MetaCommentValue } from '../types/meta.types.js';
-import { matchKeyword } from '../services/keyword.service.js';
+import { matchKeyword, getKeywordRules } from '../services/keyword.service.js';
 import { isOnCooldown, isRateLimited, recordTrigger } from '../services/cooldown.service.js';
 import { sendTextDM, sendButtonDM, sendCommentReplyDM, sendCommentReplyButtonDM, replyToComment } from '../services/instagram.service.js';
 import { renderTemplate } from '../utils/templates.js';
@@ -25,11 +25,18 @@ export async function handleComment(comment: MetaCommentValue): Promise<void> {
   // 1. Match against keyword rules
   const account = getCurrentAccount();
   const accountId = account?.id ?? 'legacy-default';
-  const rule = matchKeyword(text, accountId);
+  let rule = matchKeyword(text, accountId);
 
+  // If no keyword match, try DEFAULT fallback
   if (!rule) {
-    logger.info({ text }, 'No keyword match found');
-    return;
+    const fallback = getKeywordRules(accountId).find((k) => k.keyword.toUpperCase() === 'DEFAULT');
+    if (fallback) {
+      rule = fallback;
+      logger.info({ text, fallbackId: fallback.id }, 'No keyword match, using DEFAULT fallback');
+    } else {
+      logger.info({ text }, 'No keyword match found');
+      return;
+    }
   }
 
   logger.info({ ruleId: rule.id, keyword: rule.keyword, responseType: rule.response?.type, hasButtons: rule.response?.buttons?.length }, 'Keyword matched');
