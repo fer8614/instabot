@@ -22,8 +22,13 @@ export async function handleComment(comment: MetaCommentValue): Promise<void> {
 
   logger.info({ userId, username, text, commentId }, 'Processing comment');
 
-  // 1. Match against keyword rules
+  // 0. Skip comments from the bot's own account
   const account = getCurrentAccount();
+  if (account && userId === account.pageId) {
+    logger.info({ userId, username }, 'Skipping own comment');
+    return;
+  }
+  // 1. Match against keyword rules
   const accountId = account?.id ?? 'legacy-default';
   let rule = matchKeyword(text, accountId);
 
