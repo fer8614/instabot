@@ -4,23 +4,24 @@ Self-hosted Instagram DM automation with **multi-account support**.
 
 InstaBot lets you manage keyword-triggered DMs, lead capture, email delivery, and follow-up flows for **one or many Instagram accounts** from a single admin panel.
 
-## What changed in the multi-account version
+## What's new in the latest version
 
-This repository now supports **multiple Instagram automations from the same backend**.
+This repository now includes **advanced conversation flows and scheduled messaging**.
 
-That means you can:
-- create multiple automations/accounts from the admin panel
-- assign different credentials per Instagram account
-- configure different keyword rules per account
-- keep leads and DM logs separated by account
-- use one backend instance to operate several Instagram automations
+You can now:
+- Create **branching conversations** where button clicks trigger other keywords (ManyChat-style)
+- Set up a **DEFAULT fallback keyword** to respond to any unmapped comment
+- Schedule **automatic follow-up DMs** with configurable delays (up to 24 hours)
+- Manage **multiple Instagram accounts** with isolated credentials and data
+- Configure **keyword rules per account** from the admin panel
 
-From the admin panel you now get:
-- **Automatizaciones** tab
-- **+ Nueva automatización** button
-- account selector
-- keywords per automation/account
-- account-specific config and credentials
+From the admin panel you get:
+- **Automations** tab for account management
+- **+ New automation** button to add accounts
+- Account selector for multi-account switching
+- Keywords configuration per automation/account
+- Account-specific credentials and settings
+- Scheduled messages editor for delayed DMs
 
 ## Core features
 
@@ -164,8 +165,8 @@ corepack pnpm dev
 ### 6. Create your first automation
 
 In the admin panel:
-1. go to **Automatizaciones**
-2. click **+ Nueva automatización**
+1. go to **Automations**
+2. click **+ New automation**
 3. enter:
    - automation name
    - Instagram page ID
@@ -238,9 +239,9 @@ Current admin panel supports:
 InstaBot supports **ManyChat-style branching** where button clicks trigger other keywords:
 
 1. Create a keyword with a button response
-2. Set button payload to match another keyword name (e.g., `VER_CURSO`)
-3. When user clicks the button, the postback triggers the `VER_CURSO` keyword
-4. The response to `VER_CURSO` is sent automatically
+2. Set button payload to match another keyword name (e.g., `VIEW_COURSE`)
+3. When user clicks the button, the postback triggers the `VIEW_COURSE` keyword
+4. The response to `VIEW_COURSE` is sent automatically
 
 This enables multi-step conversations without hardcoding flows.
 
@@ -249,8 +250,8 @@ This enables multi-step conversations without hardcoding flows.
 Send automatic follow-up DMs after a delay:
 
 1. Edit a keyword in the admin panel
-2. Scroll to **"⏰ Mensajes Programados"**
-3. Click **"+ Mensaje Programado"**
+2. Scroll to **"⏰ Scheduled Messages"**
+3. Click **"+ Scheduled Message"**
 4. Set:
    - **Delay (minutes):** 30, 120, 1440, etc. (max 1440 = 24 hours)
    - **Type:** Text or Button
@@ -271,8 +272,8 @@ Create a catch-all keyword that responds to any comment:
 
 1. Create a keyword with ID `Default`
 2. Set **Keyword Principal** to `DEFAULT`
-3. Set **Tipo de Match** to `Exacto`
-4. Set **Prioridad** to `999` (lowest priority)
+3. Set **Match Type** to `Exact`
+4. Set **Priority** to `999` (lowest priority)
 5. Configure the response
 
 When a comment doesn't match any other keyword, the DEFAULT keyword responds.
