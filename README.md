@@ -24,26 +24,29 @@ From the admin panel you now get:
 
 ## Core features
 
-- Keyword-triggered DMs on Instagram comments
-- DM keyword matching from inbound messages
-- Support for:
+- **Keyword-triggered DMs** on Instagram comments
+- **DM keyword matching** from inbound messages
+- **Branching conversation flows** — postback buttons can trigger other keywords
+- **DEFAULT fallback keyword** — catch-all response for any comment
+- **Scheduled/delayed messages** — send automatic follow-up DMs after configurable delays (up to 24 hours)
+- **Keyword matching types:**
   - `exact`
   - `contains`
   - `word_boundary`
-- Button/postback flows
-- Email capture flow
-- Reminder flow for pending email capture
-- Optional email delivery via Resend
-- Story mention replies
-- Ice Breaker support
-- Per-user cooldowns and rate limiting
-- PostgreSQL persistence for:
+- **Button/postback flows** with custom payloads
+- **Email capture flow** with optional Resend integration
+- **Reminder flow** for pending email capture
+- **Story mention replies**
+- **Ice Breaker support**
+- **Per-user cooldowns and rate limiting**
+- **PostgreSQL persistence** for:
   - accounts
   - keyword rule sets
   - leads
   - DM logs
-- Admin panel for multi-account management
-- Railway / Docker friendly deployment
+  - scheduled messages
+- **Admin panel** for multi-account management
+- **Railway / Docker** friendly deployment
 
 ## High-level architecture
 
@@ -94,10 +97,11 @@ railway.toml
 
 The multi-account implementation introduces these main storage concepts:
 
-- `instagram_accounts`
-- `keyword_rule_sets`
-- `leads` with `account_id`
-- `dm_log` with `account_id`
+- `instagram_accounts` — stores credentials and settings per account
+- `keyword_rule_sets` — keyword rules per account (stored as JSON)
+- `leads` — user leads with `account_id` for isolation
+- `dm_log` — DM history with `account_id` for isolation
+- `scheduled_messages` — delayed/cron DMs scheduled per user and keyword
 
 This allows one backend instance to keep each automation isolated.
 
@@ -214,12 +218,64 @@ It also supports:
 ## Admin panel capabilities
 
 Current admin panel supports:
-- list automations/accounts
-- create new automation
-- select active automation
-- edit per-account credentials
-- configure keyword rules per account
-- save account-specific keyword sets
+- **List automations/accounts** with status
+- **Create new automation** with unique credentials
+- **Select active automation** for editing
+- **Edit per-account credentials** (page ID, tokens, secrets)
+- **Configure keyword rules per account** with:
+  - Keyword matching (exact, contains, word_boundary)
+  - Priority and cooldown settings
+  - Email capture flow
+  - Initial response (text or button)
+  - Follow-up response (text or button)
+  - **Scheduled messages** (delayed DMs with configurable delays)
+- **Branching flows** — postback buttons can trigger other keywords
+- **DEFAULT fallback keyword** — catch-all for unmapped comments
+- **Save account-specific keyword sets** to database
+
+## Branching conversation flows
+
+InstaBot supports **ManyChat-style branching** where button clicks trigger other keywords:
+
+1. Create a keyword with a button response
+2. Set button payload to match another keyword name (e.g., `VER_CURSO`)
+3. When user clicks the button, the postback triggers the `VER_CURSO` keyword
+4. The response to `VER_CURSO` is sent automatically
+
+This enables multi-step conversations without hardcoding flows.
+
+## Scheduled/delayed messages
+
+Send automatic follow-up DMs after a delay:
+
+1. Edit a keyword in the admin panel
+2. Scroll to **"⏰ Mensajes Programados"**
+3. Click **"+ Mensaje Programado"**
+4. Set:
+   - **Delay (minutes):** 30, 120, 1440, etc. (max 1440 = 24 hours)
+   - **Type:** Text or Button
+   - **Text:** Message content
+   - **Buttons:** (optional) postback or URL buttons
+5. Save
+
+When a user triggers the keyword, the bot:
+1. Sends the initial response immediately
+2. Schedules follow-up messages for later
+3. Sends them automatically at the configured times
+
+**Limitation:** Instagram only allows DMs within 24 hours of the last user interaction.
+
+## DEFAULT fallback keyword
+
+Create a catch-all keyword that responds to any comment:
+
+1. Create a keyword with ID `Default`
+2. Set **Keyword Principal** to `DEFAULT`
+3. Set **Tipo de Match** to `Exacto`
+4. Set **Prioridad** to `999` (lowest priority)
+5. Configure the response
+
+When a comment doesn't match any other keyword, the DEFAULT keyword responds.
 
 ## Legacy fallback
 
@@ -256,19 +312,27 @@ The included `Dockerfile` can be used on any container host.
 
 ## Current maturity
 
-This branch is now at **functional multi-account MVP** level.
+This branch is now at **feature-complete multi-account automation** level.
 
-That means:
-- backend foundation is in place
-- admin panel flow exists
-- account-aware routing exists
-- account-aware credentials exist
+**Implemented features:**
+- ✅ Multi-account support with isolated credentials and data
+- ✅ Keyword-triggered DMs on comments and messages
+- ✅ Branching conversation flows (postback → keyword)
+- ✅ DEFAULT fallback keyword for catch-all responses
+- ✅ Scheduled/delayed messages (cron-style DMs)
+- ✅ Email capture and optional Resend integration
+- ✅ Admin panel for full account and keyword management
+- ✅ PostgreSQL persistence
+- ✅ Per-user cooldowns and rate limiting
+- ✅ Account-aware webhook routing and signature validation
 
-Still worth improving over time:
-- more polished panel UX
-- richer account validation
-- dedicated DB migrations framework
-- more tests specifically for multi-account scenarios
+**Still worth improving over time:**
+- More polished admin panel UX
+- Richer account validation
+- Dedicated DB migrations framework
+- More tests specifically for multi-account scenarios
+- Analytics/reporting dashboard
+- Bulk keyword import/export
 
 ## License
 
