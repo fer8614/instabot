@@ -25,7 +25,7 @@ export async function createScheduledMessages(
         ${keywordId},
         ${msg.text},
         ${msg.type},
-        ${msg.buttons ? JSON.stringify(msg.buttons) : null},
+        ${msg.buttons?.length ? JSON.stringify(msg.buttons) : null}::jsonb,
         ${msg.delayMinutes},
         NOW() + ${`${msg.delayMinutes} minutes`}::interval
       )
@@ -65,8 +65,9 @@ async function processScheduledMessages(): Promise<void> {
         setCurrentAccount(account);
       }
 
-      if (msg.message_type === 'button' && msg.buttons?.length) {
-        await sendButtonDM(msg.ig_user_id, msg.message_text, msg.buttons);
+      const buttons: MessageButton[] | null = typeof msg.buttons === 'string' ? JSON.parse(msg.buttons) : msg.buttons;
+      if (msg.message_type === 'button' && buttons?.length) {
+        await sendButtonDM(msg.ig_user_id, msg.message_text, buttons);
       } else {
         await sendTextDM(msg.ig_user_id, msg.message_text);
       }
